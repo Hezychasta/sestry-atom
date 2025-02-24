@@ -1,9 +1,9 @@
 const { create } = require("xmlbuilder2");
 const axios = require("axios");
+require("dotenv").config(); // Dodaj to, aby załadować zmienne środowiskowe
 
 // Konfiguracja
-const apiToken =
-  "62a0d11599b45d7dc8eca10af7a97e87a1059cf8ec900a497c2e4c28fddd2fe5";
+const apiToken = process.env.API_TOKEN; // Zmieniono na wartość z .env
 const collectionId = "64ddde2653f7418145a8970e"; // Articles
 const cmsLocaleId = "658164deee2c1cfd4472cfc4"; // Polski język
 const baseUrl = "https://pl.sestry.eu"; // Polska domena
