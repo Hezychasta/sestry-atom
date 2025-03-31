@@ -161,7 +161,7 @@ async function handleRequest(request) {
     }
 
     // Summary (lead artykułu)
-    const summaryRaw = fieldData["article-excerpt"] || "<p>Brak wstępu</p>";
+    const summaryRaw = fieldData["article-lead"] || "<p>Brak wstępu</p>";
     xml += `
     <summary type="html"><![CDATA[${summaryRaw}]]></summary>`;
 
@@ -181,25 +181,8 @@ async function handleRequest(request) {
         return `<figure><img src="${src}" alt="">${newFigcaption}</figure>`;
       }
     );
-
-    // Dodanie banera na końcu treści artykułu
-    const bannerHTML = `
-      <div style="width: 100%; background-color: #f9f9f9; padding: 30px; text-align: center; border-top: 1px solid #ddd; margin-top: 40px; font-family: Arial, sans-serif;">
-        <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
-          <div style="font-size: 40px; color: #e63946;">❤️</div>
-          <h2 style="margin: 0; font-size: 24px; color: #333;">Wesprzyj naszą misję</h2>
-          <p style="margin: 10px 0; font-size: 16px; color: #555; max-width: 600px;">
-            Dzięki Twojemu wsparciu możemy tworzyć więcej wartościowych treści i rozwijać naszą społeczność. Dołącz do nas na Patronite!
-          </p>
-          <a href="https://patronite.pl/sestry.eu" style="display: inline-block; padding: 10px 20px; background-color: #0073e6; color: #fff; text-decoration: none; font-size: 16px; border-radius: 5px; font-weight: bold;">
-            Wesprzyj nas
-          </a>
-        </div>
-      </div>`;
-    const contentWithBanner = `${contentCleaned}${bannerHTML}`;
-
     xml += `
-    <content type="html"><![CDATA[${contentWithBanner}]]></content>
+    <content type="html"><![CDATA[${contentCleaned}]]></content>
   </entry>`;
   });
 
