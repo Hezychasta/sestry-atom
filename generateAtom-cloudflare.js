@@ -58,17 +58,26 @@ async function handleRequest(request) {
     cmsLocaleId
   ); // Authors
 
-  // Pobieranie danych z Webflow API v2
-  const response = await fetch(
-    `https://api.webflow.com/v2/collections/${collectionId}/items?cmsLocaleId=${cmsLocaleId}&isDraft=false`,
-    {
-      headers: { Authorization: `Bearer ${apiToken}` },
-    }
-  );
-  const items = (await response.json()).items;
+  // Pobieranie wszystkich danych z Webflow API v2 z paginacją
+  let allItems = [];
+  let offset = 0;
+  const limit = 100;
+
+  while (true) {
+    const response = await fetch(
+      `https://api.webflow.com/v2/collections/${collectionId}/items?cmsLocaleId=${cmsLocaleId}&isDraft=false&offset=${offset}&limit=${limit}`,
+      {
+        headers: { Authorization: `Bearer ${apiToken}` },
+      }
+    );
+    const data = await response.json();
+    allItems = allItems.concat(data.items);
+    if (data.items.length < limit) break; // Koniec paginacji
+    offset += limit;
+  }
 
   // Filtrowanie tylko artykułów przetłumaczonych na polski i opublikowanych
-  const filteredItems = items.filter((item) => {
+  const filteredItems = allItems.filter((item) => {
     const fieldData = item.fieldData;
     const content = fieldData["article-content"] || "";
     const hasPolishContent = /[ąćęłńóśźż]/i.test(content); // Usunięto wykluczanie ukraińskich znaków
