@@ -40,6 +40,22 @@ async function fetchAuthors(apiToken, collectionId, cmsLocaleId) {
   }, {});
 }
 
+function getSupportBannerHTML() {
+  return `
+    <div style="width: 100%; background-color: #f9f9f9; padding: 30px; text-align: center; border-top: 1px solid #ddd; margin-top: 40px; font-family: Arial, sans-serif;">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+        <div style="font-size: 40px; color: #e63946;">❤️</div>
+        <h2 style="margin: 0; font-size: 24px; color: #333;">Wesprzyj naszą misję</h2>
+        <p style="margin: 10px 0; font-size: 16px; color: #555; max-width: 600px;">
+          Dzięki Twojemu wsparciu możemy tworzyć więcej wartościowych treści i rozwijać naszą społeczność. Dołącz do nas na Patronite!
+        </p>
+        <a href="https://patronite.pl/sestry.eu" style="display: inline-block; padding: 10px 20px; background-color: #0073e6; color: #fff; text-decoration: none; font-size: 16px; border-radius: 5px; font-weight: bold;">
+          Wesprzyj nas
+        </a>
+      </div>
+    </div>`;
+}
+
 async function handleRequest(request) {
   const apiToken =
     "62a0d11599b45d7dc8eca10af7a97e87a1059cf8ec900a497c2e4c28fddd2fe5";
@@ -199,8 +215,11 @@ async function handleRequest(request) {
         "<blockquote><p>$1</p></blockquote>"
       );
 
+    // Dodanie banera na końcu treści artykułu
+    const contentWithBanner = `${contentCleaned}${getSupportBannerHTML()}`;
+
     xml += `
-    <content type="html"><![CDATA[${contentCleaned}]]></content>
+    <content type="html"><![CDATA[${contentWithBanner}]]></content>
   </entry>`;
   });
 
