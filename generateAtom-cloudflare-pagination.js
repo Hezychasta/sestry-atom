@@ -42,7 +42,7 @@ async function fetchAuthors(apiToken, collectionId, cmsLocaleId) {
 
 function getSupportBannerHTML() {
   return `
-  <p>REKLAMA</p><p>Dzięki Twojemu wsparciu możemy tworzyć więcej wartościowych treści i rozwijać naszą społeczność. <a href="https://patronite.pl/sestry.eu">Dołącz do nas na Patronite!</a></p>`;
+    <p>Dzięki Twojemu wsparciu możemy tworzyć więcej wartościowych treści i rozwijać naszą społeczność. <a href="https://patronite.pl/sestry.eu">Dołącz do nas na Patronite!</a></p>`;
 }
 
 async function handleRequest(request) {
@@ -63,26 +63,43 @@ async function handleRequest(request) {
     cmsLocaleId
   ); // Authors
 
-  // Pobieranie 10 najnowszych artykułów z Webflow API v2
-  const response = await fetch(
-    `https://api.webflow.com/v2/collections/${collectionId}/items?cmsLocaleId=${cmsLocaleId}&isDraft=false&limit=10`,
-    {
-      headers: { Authorization: `Bearer ${apiToken}` },
-    }
-  );
-  const data = await response.json();
-  const allItems = data.items;
+  // Pobieranie wszystkich danych z Webflow API v2 z paginacją
+  let allItems = [];
+  let offset = 0;
+  const limit = 100;
+
+  while (true) {
+    const response = await fetch(
+      `https://api.webflow.com/v2/collections/${collectionId}/items?cmsLocaleId=${cmsLocaleId}&isDraft=false&offset=${offset}&limit=${limit}`,
+      {
+        headers: { Authorization: `Bearer ${apiToken}` },
+      }
+    );
+    const data = await response.json();
+    allItems = allItems.concat(data.items);
+    if (data.items.length < limit) break; // Koniec paginacji
+    offset += limit;
+  }
 
   // Filtrowanie tylko artykułów przetłumaczonych na polski i opublikowanych
   const filteredItems = allItems.filter((item) => {
     const fieldData = item.fieldData;
     const content = fieldData["article-content"] || "";
-    const hasPolishContent = /[ąćęłńóśźż]/i.test(content);
+    const hasPolishContent = /[ąćęłńóśźż]/i.test(content); // Usunięto wykluczanie ukraińskich znaków
     const isNotDraft = !item.isDraft;
     return hasPolishContent && isNotDraft;
   });
 
-  if (!filteredItems.length) {
+  // Sortowanie po fieldData.published (od najnowszego) i wybór 10 pierwszych
+  const sortedItems = filteredItems
+    .sort((a, b) => {
+      const dateA = new Date(a.fieldData.published || 0).getTime(); // Dodano .getTime()
+      const dateB = new Date(b.fieldData.published || 0).getTime(); // Dodano .getTime()
+      return dateB - dateA;
+    })
+    .slice(0, 10);
+
+  if (!sortedItems.length) {
     return new Response(
       "Brak opublikowanych i przetłumaczonych artykułów po polsku",
       { status: 404 }
@@ -104,8 +121,8 @@ async function handleRequest(request) {
   </source>
   <rights>© 2025 Sestry. Wszystkie prawa zastrzeżone.</rights>`;
 
-  // Dodawanie entries
-  filteredItems.forEach((item) => {
+  // Dodawanie 10 entries
+  sortedItems.forEach((item) => {
     const fieldData = item.fieldData;
     xml += `
   <entry>
@@ -141,11 +158,11 @@ async function handleRequest(request) {
     <category term="${categoryName}" scheme="${baseUrl}/categories"/>`;
     });
 
-    // Media:content
+    // Media:content (główne zdjęcie artykułu – bez zmian)
     const leadImageObj = fieldData["main-image"] || null;
     const leadImage =
       leadImageObj && typeof leadImageObj === "object" && leadImageObj.url
-        ? leadImageObj.url.replace(/\.avif$/i, ".jpg")
+        ? leadImageObj.url.replace(/\.avif$/i, ".jpg") // Zamiana .avif na .jpg
         : "";
     const imageCreditsRaw = fieldData["main-image-credits1"] || "";
     const imageCredits = imageCreditsRaw.replace(/<[^>]+>/g, "").trim() || "";
@@ -156,32 +173,38 @@ async function handleRequest(request) {
     </media:content>`;
     }
 
-    // Summary
+    // Summary (lead artykułu)
     const summaryRaw = fieldData["article-excerpt"] || "<p>Brak wstępu</p>";
     xml += `
     <summary type="html"><![CDATA[${summaryRaw}]]></summary>`;
 
-    // Content
+    // Content (modyfikacja zdjęć w treści artykułu)
     const contentRaw = fieldData["article-content"] || "<p>Brak treści</p>";
+    // Upraszczamy strukturę <figure> w treści
     const contentCleaned = contentRaw
       .replace(
         /<figure[^>]*>\s*<div[^>]*>\s*<img([^>]*src=["'][^"']+["'][^>]*)>\s*<\/div>\s*(<figcaption[^>]*>([\s\S]*?)<\/figcaption>)?\s*<\/figure>/gi,
         (match, imgAttributes, figcaptionTag, figcaptionContent) => {
+          // Wyciągamy atrybut src z img
           const srcMatch = imgAttributes.match(/src=["'](.*?)["']/i);
           let src = srcMatch ? srcMatch[1] : "";
-          src = src.replace(/\.avif$/i, ".jpg");
+          src = src.replace(/\.avif$/i, ".jpg"); // Zamiana .avif na .jpg
+          // Składamy nowy znacznik <figure> z uproszczonym <img> i <figcaption>
           const newFigcaption = figcaptionTag
             ? `<figcaption>${figcaptionContent}</figcaption>`
             : "";
           return `<figure><img src="${src}" alt="">${newFigcaption}</figure>`;
         }
       )
+      // Usuwamy niepotrzebne id="" z różnych tagów
       .replace(/\s+id=["'][^"']*["']/gi, "")
+      // Dodajemy <p> wewnątrz <blockquote>, jeśli brak
       .replace(
         /<blockquote>(?!<p>)([\s\S]*?)(?<!<\/p>)<\/blockquote>/gi,
         "<blockquote><p>$1</p></blockquote>"
       );
 
+    // Dodanie banera na końcu treści artykułu
     const contentWithBanner = `${contentCleaned}${getSupportBannerHTML()}`;
 
     xml += `
