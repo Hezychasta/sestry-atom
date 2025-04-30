@@ -73,13 +73,17 @@ async function handleRequest(request) {
   const data = await response.json();
   const allItems = data.items;
 
-  // Filtrowanie tylko artykułów przetłumaczonych na polski i opublikowanych
+  // Filtrowanie tylko artykułów przetłumaczonych na polski, opublikowanych i nie zaplanowanych
   const filteredItems = allItems.filter((item) => {
     const fieldData = item.fieldData;
     const content = fieldData["article-content"] || "";
     const hasPolishContent = /[ąćęłńóśźż]/i.test(content);
     const isNotDraft = !item.isDraft;
-    return hasPolishContent && isNotDraft;
+    const isNotScheduled = item.status !== "scheduled"; // Exclude scheduled articles
+    const hasValidCreationDate = item.createdOn; // Ensure the article has a creation date
+    return (
+      hasPolishContent && isNotDraft && isNotScheduled && hasValidCreationDate
+    );
   });
 
   if (!filteredItems.length) {
@@ -112,8 +116,8 @@ async function handleRequest(request) {
     <id>urn:uuid:${item.id}</id>
     <link rel="alternate" type="text/html" href="${baseUrl}/${fieldData.slug}"/>
     <title>${fieldData.name || "Bez tytułu"}</title>
-    <updated>${fieldData.published || new Date().toISOString()}</updated>
-    <published>${fieldData.published || new Date().toISOString()}</published>`;
+    <updated>${item.createdOn || new Date().toISOString()}</updated>
+    <published>${item.createdOn || new Date().toISOString()}</published>`;
 
     // Autorzy
     const authorIds = fieldData.author
@@ -182,7 +186,11 @@ async function handleRequest(request) {
         "<blockquote><p>$1</p></blockquote>"
       );
 
-    const contentWithBanner = `${contentCleaned}${getSupportBannerHTML()}`;
+    // Wstawianie tekstu o Patronite po pierwszym akapicie
+    const contentWithBanner = contentCleaned.replace(
+      /<\/p>/i,
+      `</p>${getSupportBannerHTML()}`
+    );
 
     xml += `
     <content type="html"><![CDATA[${contentWithBanner}]]></content>
