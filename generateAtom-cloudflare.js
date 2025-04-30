@@ -162,8 +162,9 @@ async function handleRequest(request) {
 
     // Summary
     const summaryRaw = fieldData["article-excerpt"] || "<p>Brak wstępu</p>";
+    const summaryWithBanner = `${summaryRaw}${getSupportBannerHTML()}`;
     xml += `
-    <summary type="html"><![CDATA[${summaryRaw}]]></summary>`;
+    <summary type="html"><![CDATA[${summaryWithBanner}]]></summary>`;
 
     // Content
     const contentRaw = fieldData["article-content"] || "<p>Brak treści</p>";
@@ -186,14 +187,8 @@ async function handleRequest(request) {
         "<blockquote><p>$1</p></blockquote>"
       );
 
-    // Wstawianie tekstu o Patronite po pierwszym akapicie
-    const contentWithBanner = contentCleaned.replace(
-      /<\/p>/i,
-      `</p>${getSupportBannerHTML()}`
-    );
-
     xml += `
-    <content type="html"><![CDATA[${contentWithBanner}]]></content>
+    <content type="html"><![CDATA[${contentCleaned}]]></content>
   </entry>`;
   });
 
