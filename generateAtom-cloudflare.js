@@ -78,11 +78,16 @@ async function handleRequest(request) {
     const fieldData = item.fieldData;
     const content = fieldData["article-content"] || "";
     const hasPolishContent = /[ąćęłńóśźż]/i.test(content);
+    const hasUkrainianContent = /[ґєіїґЄІЇ]/i.test(content); // Detect Ukrainian characters
     const isNotDraft = !item.isDraft;
     const isNotScheduled = item.status !== "scheduled"; // Exclude scheduled articles
     const hasValidCreationDate = item.createdOn; // Ensure the article has a creation date
     return (
-      hasPolishContent && isNotDraft && isNotScheduled && hasValidCreationDate
+      hasPolishContent &&
+      !hasUkrainianContent && // Exclude articles with Ukrainian characters
+      isNotDraft &&
+      isNotScheduled &&
+      hasValidCreationDate
     );
   });
 
