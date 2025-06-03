@@ -22,8 +22,8 @@ async function fetchSlugs() {
 
   const sortedItems = filteredItems
     .sort((a, b) => {
-      const dateA = new Date(a.fieldData.published || 0).getTime();
-      const dateB = new Date(b.fieldData.published || 0).getTime();
+      const dateA = new Date(a.createdOn || 0).getTime();
+      const dateB = new Date(b.createdOn || 0).getTime();
       return dateB - dateA;
     })
     .slice(0, 10);

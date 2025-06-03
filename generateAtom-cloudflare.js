@@ -42,7 +42,8 @@ async function fetchAuthors(apiToken, collectionId, cmsLocaleId) {
 
 function getSupportBannerHTML() {
   return `
-  <p>REKLAMA</p><p>Dzięki Twojemu wsparciu możemy tworzyć więcej wartościowych treści i rozwijać naszą społeczność. <a href="https://patronite.pl/sestry.eu">Dołącz do nas na Patronite!</a></p>`;
+  <p>REKLAMA</p><p>Ten tekst pochodzi z serwisu <a href="https://www.sestry.eu/" style="font-weight:bold; color:#e20000;">Sestry.eu</a></p>
+  <p> Dzięki Twojemu wsparciu możemy tworzyć więcej wartościowych treści i rozwijać naszą społeczność. <a href="https://patronite.pl/sestry.eu">Dołącz do nas na Patronite!</a> ❤️</p>`;
 }
 
 async function handleRequest(request) {
@@ -64,34 +65,48 @@ async function handleRequest(request) {
   ); // Authors
 
   // Pobieranie 10 najnowszych artykułów z Webflow API v2
-  const response = await fetch(
-    `https://api.webflow.com/v2/collections/${collectionId}/items?cmsLocaleId=${cmsLocaleId}&isDraft=false&limit=10`,
-    {
-      headers: { Authorization: `Bearer ${apiToken}` },
-    }
-  );
-  const data = await response.json();
-  const allItems = data.items;
+  let allItems = [];
+  let offset = 0;
+  const limit = 10;
+  const validItems = [];
 
-  // Filtrowanie tylko artykułów przetłumaczonych na polski, opublikowanych i nie zaplanowanych
-  const filteredItems = allItems.filter((item) => {
-    const fieldData = item.fieldData;
-    const content = fieldData["article-content"] || "";
-    const hasPolishContent = /[ąćęłńóśźż]/i.test(content);
-    const hasUkrainianContent = /[ґєіїґЄІЇ]/i.test(content); // Detect Ukrainian characters
-    const isNotDraft = !item.isDraft;
-    const isNotScheduled = item.status !== "scheduled"; // Exclude scheduled articles
-    const hasValidCreationDate = item.createdOn; // Ensure the article has a creation date
-    return (
-      hasPolishContent &&
-      !hasUkrainianContent && // Exclude articles with Ukrainian characters
-      isNotDraft &&
-      isNotScheduled &&
-      hasValidCreationDate
+  while (validItems.length < limit) {
+    const response = await fetch(
+      `https://api.webflow.com/v2/collections/${collectionId}/items?cmsLocaleId=${cmsLocaleId}&isDraft=false&offset=${offset}&limit=${limit}`,
+      {
+        headers: { Authorization: `Bearer ${apiToken}` },
+      }
     );
-  });
+    const data = await response.json();
+    allItems = data.items;
 
-  if (!filteredItems.length) {
+    // Filtrowanie tylko artykułów przetłumaczonych na polski, opublikowanych i nie zaplanowanych
+    const filteredItems = allItems.filter((item) => {
+      const fieldData = item.fieldData;
+      const content = fieldData["article-content"] || "";
+      const hasPolishContent = /[ąćęłńóśźż]/i.test(content);
+      const hasUkrainianContent = /[ґєіїґЄІЇ]/i.test(content); // Detect Ukrainian characters
+      const isNotDraft = !item.isDraft;
+      const isNotScheduled = item.status !== "scheduled"; // Exclude scheduled articles
+      const hasValidCreationDate = item.createdOn; // Ensure the article has a creation date
+      return (
+        hasPolishContent &&
+        !hasUkrainianContent && // Exclude articles with Ukrainian characters
+        isNotDraft &&
+        isNotScheduled &&
+        hasValidCreationDate
+      );
+    });
+
+    validItems.push(...filteredItems);
+
+    if (allItems.length < limit) break; // Break if no more items are available
+    offset += limit;
+  }
+
+  const finalItems = validItems.slice(0, limit); // Ensure exactly 10 items
+
+  if (!finalItems.length) {
     return new Response(
       "Brak opublikowanych i przetłumaczonych artykułów po polsku",
       { status: 404 }
@@ -114,7 +129,7 @@ async function handleRequest(request) {
   <rights>© 2025 Sestry. Wszystkie prawa zastrzeżone.</rights>`;
 
   // Dodawanie entries
-  filteredItems.forEach((item) => {
+  finalItems.forEach((item) => {
     const fieldData = item.fieldData;
     xml += `
   <entry>
@@ -167,13 +182,16 @@ async function handleRequest(request) {
 
     // Summary
     const summaryRaw = fieldData["article-excerpt"] || "<p>Brak wstępu</p>";
-    const summaryWithBanner = `${summaryRaw}${getSupportBannerHTML()}`;
     xml += `
-    <summary type="html"><![CDATA[${summaryWithBanner}]]></summary>`;
+    <summary type="html"><![CDATA[${summaryRaw}]]></summary>`;
 
     // Content
     const contentRaw = fieldData["article-content"] || "<p>Brak treści</p>";
-    const contentCleaned = contentRaw
+    const contentWithBanner = contentRaw.replace(
+      /(<\/p>)/i,
+      `$1${getSupportBannerHTML()}` // Insert after the first paragraph only
+    );
+    const contentCleaned = contentWithBanner
       .replace(
         /<figure[^>]*>\s*<div[^>]*>\s*<img([^>]*src=["'][^"']+["'][^>]*)>\s*<\/div>\s*(<figcaption[^>]*>([\s\S]*?)<\/figcaption>)?\s*<\/figure>/gi,
         (match, imgAttributes, figcaptionTag, figcaptionContent) => {
