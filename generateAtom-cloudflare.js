@@ -7,7 +7,7 @@ async function fetchCategories(apiToken, collectionId) {
     `https://api.webflow.com/v2/collections/${collectionId}/items`,
     {
       headers: { Authorization: `Bearer ${apiToken}` },
-    }
+    },
   );
   const data = await response.json();
   return data.items.reduce((map, item) => {
@@ -26,7 +26,7 @@ async function fetchAuthors(apiToken, collectionId, cmsLocaleId) {
       `https://api.webflow.com/v2/collections/${collectionId}/items?offset=${offset}&limit=${limit}&cmsLocaleId=${cmsLocaleId}`,
       {
         headers: { Authorization: `Bearer ${apiToken}` },
-      }
+      },
     );
     const data = await response.json();
     allItems = allItems.concat(data.items);
@@ -42,8 +42,8 @@ async function fetchAuthors(apiToken, collectionId, cmsLocaleId) {
 
 function getSupportBannerHTML() {
   return `
-  <p>REKLAMA</p><p>Ten tekst pochodzi z serwisu <a href="https://www.sestry.eu/" style="font-weight:bold; color:#e20000;">Sestry.eu</a></p>
-  <p> Dzięki Twojemu wsparciu możemy tworzyć więcej wartościowych treści i rozwijać naszą społeczność. <a href="https://patronite.pl/sestry.eu">Dołącz do nas na Patronite!</a> ❤️</p>`;
+  <p>[REKLAMA]</p><p>Ten tekst pochodzi z serwisu <a href="https://www.sestry.eu/" style="font-weight:bold; color:#e20000;">Sestry.eu</a></p>
+  <p><em> Dzięki Twojemu wsparciu możemy tworzyć więcej wartościowych treści i rozwijać naszą społeczność. <a href="https://patronite.pl/sestry.eu">Dołącz do nas na Patronite!</a> ❤️</em></p>`;
 }
 
 async function handleRequest(request) {
@@ -51,17 +51,17 @@ async function handleRequest(request) {
     "62a0d11599b45d7dc8eca10af7a97e87a1059cf8ec900a497c2e4c28fddd2fe5";
   const collectionId = "64ddde2653f7418145a8970e"; // Articles
   const cmsLocaleId = "658164deee2c1cfd4472cfc4"; // Polski język
-  const baseUrl = "https://pl.sestry.eu"; // Polska subdomena
+  const baseUrl = "https://www.sestry.eu/pl"; // ZMIENIONE: Używa głównej domeny
 
   // Pobieranie map autorów i kategorii
   const categoriesMap = await fetchCategories(
     apiToken,
-    "64ddde2653f7418145a896f5"
+    "64ddde2653f7418145a896f5",
   ); // Categories
   const authorsMap = await fetchAuthors(
     apiToken,
     "64ddde2653f7418145a8970f",
-    cmsLocaleId
+    cmsLocaleId,
   ); // Authors
 
   // Pobieranie 10 najnowszych artykułów z Webflow API v2
@@ -75,7 +75,7 @@ async function handleRequest(request) {
       `https://api.webflow.com/v2/collections/${collectionId}/items?cmsLocaleId=${cmsLocaleId}&isDraft=false&offset=${offset}&limit=${limit}`,
       {
         headers: { Authorization: `Bearer ${apiToken}` },
-      }
+      },
     );
     const data = await response.json();
     allItems = data.items;
@@ -109,7 +109,7 @@ async function handleRequest(request) {
   if (!finalItems.length) {
     return new Response(
       "Brak opublikowanych i przetłumaczonych artykułów po polsku",
-      { status: 404 }
+      { status: 404 },
     );
   }
 
@@ -165,11 +165,11 @@ async function handleRequest(request) {
     <category term="${categoryName}" scheme="${baseUrl}/categories"/>`;
     });
 
-    // Media:content
+    // Media:content - USUNIĘTO: .replace(/\.avif$/i, ".jpg")
     const leadImageObj = fieldData["main-image"] || null;
     const leadImage =
       leadImageObj && typeof leadImageObj === "object" && leadImageObj.url
-        ? leadImageObj.url.replace(/\.avif$/i, ".jpg")
+        ? leadImageObj.url
         : "";
     const imageCreditsRaw = fieldData["main-image-credits1"] || "";
     const imageCredits = imageCreditsRaw.replace(/<[^>]+>/g, "").trim() || "";
@@ -189,25 +189,26 @@ async function handleRequest(request) {
     const contentRaw = fieldData["article-content"] || "<p>Brak treści</p>";
     const contentWithBanner = contentRaw.replace(
       /(<\/p>)/i,
-      `$1${getSupportBannerHTML()}` // Insert after the first paragraph only
+      `$1${getSupportBannerHTML()}`, // Insert after the first paragraph only
     );
+    // USUNIĘTO: src = src.replace(/\.avif$/i, ".jpg");
     const contentCleaned = contentWithBanner
       .replace(
         /<figure[^>]*>\s*<div[^>]*>\s*<img([^>]*src=["'][^"']+["'][^>]*)>\s*<\/div>\s*(<figcaption[^>]*>([\s\S]*?)<\/figcaption>)?\s*<\/figure>/gi,
         (match, imgAttributes, figcaptionTag, figcaptionContent) => {
           const srcMatch = imgAttributes.match(/src=["'](.*?)["']/i);
           let src = srcMatch ? srcMatch[1] : "";
-          src = src.replace(/\.avif$/i, ".jpg");
+          // USUNIĘTO: src = src.replace(/\.avif$/i, ".jpg");
           const newFigcaption = figcaptionTag
             ? `<figcaption>${figcaptionContent}</figcaption>`
             : "";
           return `<figure><img src="${src}" alt="">${newFigcaption}</figure>`;
-        }
+        },
       )
       .replace(/\s+id=["'][^"']*["']/gi, "")
       .replace(
         /<blockquote>(?!<p>)([\s\S]*?)(?<!<\/p>)<\/blockquote>/gi,
-        "<blockquote><p>$1</p></blockquote>"
+        "<blockquote><p>$1</p></blockquote>",
       );
 
     xml += `

@@ -1,0 +1,15 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "atom-feed",
+	"main": "src/index.ts",
+	"compatibility_date": "2024-02-04",
+	"observability": {
+		"enabled": true,
+	},
+	"routes": [
+		{
+			"pattern": "feed.sestry.eu/*",
+			"zone_name": "sestry.eu",
+		},
+	],
+}
