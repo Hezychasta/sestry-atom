@@ -98,7 +98,7 @@ async function fetchAuthors(apiToken: string, collectionId: string, cmsLocaleId:
 function getSupportBannerHTML(): string {
 	return `
   <p>[REKLAMA]</p><p>Ten tekst pochodzi z serwisu <a href="https://www.sestry.eu/" style="font-weight:bold; color:#e20000;">Sestry.eu</a></p>
-  <p>Wesprzyj Sestry! Dzięki Twojemu wsparciu możemy tworzyć więcej wartościowych treści. Przekaż nam 1,5% swojego podatku: KRS 0000507234; CEL 139339 ❤️</p>`;
+  <p> Dzięki Twojemu wsparciu możemy tworzyć więcej wartościowych treści i rozwijać naszą społeczność. <a href="https://patronite.pl/sestry.eu">Dołącz do nas na Patronite!</a> ❤️</p>`;
 }
 
 // Główna logika
@@ -108,7 +108,6 @@ async function handleRequest(request: Request): Promise<Response> {
 	const cmsLocaleId = '658164deee2c1cfd4472cfc4'; // Polski język
 	const baseUrl = 'https://www.sestry.eu/pl';
 
-	// Pobieranie danych (Poprawiona literówka poniżej!)
 	const categoriesMap = await fetchCategories(apiToken, '64ddde2653f7418145a896f5');
 	const authorsMap = await fetchAuthors(apiToken, '64ddde2653f7418145a8970f', cmsLocaleId);
 
