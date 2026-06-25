@@ -1,6 +1,6 @@
-// Definicje typów dla TypeScript (żeby VS Code nie krzyczał)
+// Definicje typów dla TypeScript
 interface Env {
-	// Tu możesz zdefiniować zmienne środowiskowe jeśli będziesz ich używać
+	// Zmienne środowiskowe
 }
 
 interface WebflowItem {
@@ -32,26 +32,24 @@ export default {
 	},
 };
 
-// --- HELPER DO TWORZENIA LINKÓW PROXY ---
-function createProxyUrl(originalUrl: string): string {
+// --- HELPER DO POBIERANIA CZYSTYCH LINKÓW DO ZDJĘĆ ---
+// Ta funkcja upewnia się, że zwracamy bezpośredni link do Webflow,
+// bez prefiksu optymalizacyjnego, i że jest on poprawnie zakodowany (np. cyrylica, spacje).
+function getOriginalImageUrl(originalUrl: string): string {
 	if (!originalUrl) return '';
-	// Jeśli to już jest proxy link, nie zmieniaj
-	if (originalUrl.includes('/sestry-cdn/')) return originalUrl;
 
-	// Domeny Webflow
-	const webflowCdns = ['cdn.prod.website-files.com', 'assets.website-files.com', 'uploads-ssl.webflow.com'];
-	if (!webflowCdns.some((domain) => originalUrl.includes(domain))) {
-		return originalUrl;
-	}
+	// Jeśli link z jakiegoś powodu zawiera już prefix proxy, wyciągamy z niego docelowy URL
+	const proxyRegex = /https?:\/\/www\.sestry\.eu\/sestry-cdn\/[^/]+\/(https?:\/\/.*)/;
+	const match = originalUrl.match(proxyRegex);
 
-	// Pełny link do Twojego Proxy (Głównego Workera)
-	const proxyPrefix = 'https://www.sestry.eu/sestry-cdn/w_auto,q_80';
+	let urlToProcess = match && match[1] ? match[1] : originalUrl;
 
+	// Dekodujemy i kodujemy ponownie, aby upewnić się, że spacje i cyrylica
+	// są poprawnie zapisane jako encje URL (np. spacja jako %20)
 	try {
-		const encodedUrl = encodeURI(decodeURIComponent(originalUrl).trim());
-		return `${proxyPrefix}/${encodedUrl}`;
+		return encodeURI(decodeURIComponent(urlToProcess).trim());
 	} catch (e) {
-		return originalUrl;
+		return urlToProcess; // W razie błędu parsowania, zwraca oryginalny string
 	}
 }
 
@@ -124,7 +122,6 @@ async function handleRequest(request: Request): Promise<Response> {
 		const data = (await response.json()) as WebflowResponse;
 		allItems = data.items;
 
-		// Jeśli brak itemów, przerywamy pętlę
 		if (!allItems || allItems.length === 0) break;
 
 		const filteredItems = allItems.filter((item) => {
@@ -186,10 +183,10 @@ async function handleRequest(request: Request): Promise<Response> {
     <category term="${categoriesMap[categoryId] || categoryId}" scheme="${baseUrl}/categories"/>`;
 		});
 
-		// --- PROXY FIX 1: Lead Image ---
+		// --- ZMIANA 1: Czysty URL dla miniatury głównej (Lead Image) ---
 		let leadImage = '';
 		if (fieldData['main-image'] && fieldData['main-image'].url) {
-			leadImage = createProxyUrl(fieldData['main-image'].url);
+			leadImage = getOriginalImageUrl(fieldData['main-image'].url);
 		}
 
 		const imageCreditsRaw = fieldData['main-image-credits1'] || '';
@@ -202,31 +199,29 @@ async function handleRequest(request: Request): Promise<Response> {
     </media:content>`;
 		}
 
-		// Summary
 		const summaryRaw = fieldData['article-excerpt'] || '<p>Brak wstępu</p>';
 		xml += `
     <summary type="html"><![CDATA[${summaryRaw}]]></summary>`;
 
-		// Content
 		const contentRaw = fieldData['article-content'] || '<p>Brak treści</p>';
 		const contentWithBanner = contentRaw.replace(/(<\/p>)/i, `$1${getSupportBannerHTML()}`);
 
-		// --- PROXY FIX 2: Content Images ---
+		// --- ZMIANA 2: Czysty URL dla obrazków w tagach <figure> ---
 		const contentCleaned = contentWithBanner
 			.replace(
 				/<figure[^>]*>\s*<div[^>]*>\s*<img([^>]*src=["'](.*?)["'][^>]*)>\s*<\/div>\s*(<figcaption[^>]*>([\s\S]*?)<\/figcaption>)?\s*<\/figure>/gi,
 				(match: string, imgAttributes: string, srcUrl: string, figcaptionTag: string, figcaptionContent: string) => {
-					const proxySrc = createProxyUrl(srcUrl);
+					const originalSrc = getOriginalImageUrl(srcUrl);
 					const newFigcaption = figcaptionTag ? `<figcaption>${figcaptionContent}</figcaption>` : '';
-					return `<figure><img src="${proxySrc}" alt="">${newFigcaption}</figure>`;
+					return `<figure><img src="${originalSrc}" alt="">${newFigcaption}</figure>`;
 				},
 			)
 			.replace(/\s+id=["'][^"']*["']/gi, '')
 			.replace(/<blockquote>(?!<p>)([\s\S]*?)(?<!<\/p>)<\/blockquote>/gi, '<blockquote><p>$1</p></blockquote>');
 
-		// Dodatkowy replace dla luźnych obrazków
+		// --- ZMIANA 3: Czysty URL dla tzw. luźnych obrazków w treści ---
 		const contentFinal = contentCleaned.replace(/src="(https:\/\/cdn\.prod\.website-files\.com[^"]+)"/g, (match: string, url: string) => {
-			return `src="${createProxyUrl(url)}"`;
+			return `src="${getOriginalImageUrl(url)}"`;
 		});
 
 		xml += `
